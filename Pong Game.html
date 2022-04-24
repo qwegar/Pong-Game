@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pong Game</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      body {
+        background-color: #8b8b8b;
+      }
+
+      h1 {
+        margin-top: 30px;
+        color: aliceblue;
+        text-align: center;
+        text-transform: uppercase;
+        font-size: 70px;
+      }
+
+      .game-box {
+        width: 600px;
+        height: 400px;
+        position: relative;
+        margin: 30px auto;
+      }
+
+      .start-screen {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 600px;
+        height: 400px;
+        background-color: #aaa;
+        z-index: 10;
+      }
+
+      #start-btn {
+        width: 200px;
+        height: 100px;
+        background-color: rgb(150, 150, 150);
+        font-size: 50px;
+        text-transform: uppercase;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 3px;
+        cursor: pointer;
+        color: white;
+        transition: font-size 0.2s ease;
+      }
+
+      #start-btn:hover {
+        background-color: #aaa;
+        border: 2px solid rgb(150, 150, 150);
+        font-size: 55px;
+      }
+
+      .canvas {
+        background-color: #aaa;
+        display: block;
+        border-radius: 3px;
+      }
+
+      .cnv-full-screen {
+        position: fixed;
+        left: 0;
+        top: 0;
+      }
+
+      .miss {
+        display: none;
+        position: absolute;
+        width: 600px;
+        height: 400px;
+        background-color: rgb(105, 0, 0);
+        top: 0;
+        left: 0;
+        opacity: 0.2;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Pong</h1>
+    <div id="game" class="game-box">
+      <div id="start-screen" class="start-screen">
+        <div id="start-btn">Start</div>
+      </div>
+      <canvas id="cnv" class="canvas"></canvas>
+      <div id="miss" class="miss"></div>
+    </div>
+
+    <script>
+      let missDisplay = document.querySelector("#miss");
+      let side = "p2";
+      let scoreP1 = 0;
+      let scoreP2 = 0;
+      let pause = false;
+      let startScreen = document.querySelector("#start-screen");
+      let startBtn = document.querySelector("#start-btn");
+      let startTimer = 3;
+
+      let cnv = document.querySelector("#cnv");
+      let ctx = cnv.getContext("2d");
+
+      let gw = (cnv.width = 600);
+      let gh = (cnv.height = 400);
+
+      let paddle1 = {
+        x: 0,
+        y: gh / 2,
+        w: 5,
+        h: 50,
+        clr: "#eee",
+        move: "stop",
+        step: 5,
+      };
+
+      let paddle2 = {
+        x: gw - 5,
+        y: gh / 2,
+        w: 5,
+        h: 50,
+        clr: "#eee",
+        move: "stop",
+        step: 5,
+      };
+
+      let colors = {
+        p1: "#eee",
+        p2: "#eee",
+        ball: "#eee",
+      };
+
+      let ball = {
+        x: gw / 2 - 100,
+        y: gh / 2 - 30,
+        r: 5,
+        stepX: 3,
+        stepY: 3,
+        goRight: "stop",
+        goDown: "stop",
+      };
+
+      document.addEventListener("click", () => {
+        console.log(document.documentElement.clientWidth, document.documentElement.clientHeight);
+      });
+
+      startBtn.addEventListener("click", () => {
+        startScreen.style.display = "none";
+        startGame();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.keyCode === 80) pause = !pause;
+        if (e.keyCode === 70) fullScreenOn();
+        if (e.keyCode === 27) fullScreenOff();
+
+        console.log(e.keyCode);
+        if (e.keyCode === 87) paddle1.move = "up";
+        if (e.keyCode === 83) paddle1.move = "down";
+
+        if (e.keyCode === 38) paddle2.move = "up";
+        if (e.keyCode === 40) paddle2.move = "down";
+      });
+
+      document.addEventListener("keyup", (e) => {
+        if (e.keyCode === 87) paddle1.move = "stop";
+        if (e.keyCode === 83) paddle1.move = "stop";
+
+        if (e.keyCode === 38) paddle2.move = "stop";
+        if (e.keyCode === 40) paddle2.move = "stop";
+      });
+
+      function drawBall() {
+        ctx.fillStyle = colors.ball;
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function ballCollision() {
+        if (ball.x - ball.r / 2 <= 0 + paddle1.w && ball.y > paddle1.y && ball.y < paddle1.y + paddle1.h) {
+          ball.goRight = true;
+          ball.stepX += 0.2;
+        } // столкновенние с платформой 1
+
+        if (ball.x + ball.r / 2 >= gw - paddle2.w && ball.y > paddle2.y && ball.y < paddle2.y + paddle2.h) {
+          ball.goRight = false;
+        } // столкновенние с платформой 2
+
+        if (ball.x + ball.r / 2 >= gw) {
+          ball.goRight = false;
+          miss();
+          scoreP1++;
+          ball.stepX = 3;
+        } // столкновенние с правой стенкой
+
+        if (ball.x - ball.r / 2 <= 0) {
+          ball.goRight = true;
+          miss();
+          scoreP2++;
+          ball.stepX = 3;
+        } // столкновенние с левой стенкой
+
+        if (ball.y + ball.r / 2 >= gh) ball.goDown = false; // столкновенние с нижней стенкой
+        if (ball.y - ball.r / 2 <= 0) ball.goDown = true; // столкновенние с верхней стенкой
+
+        // изменение направления
+        if (!pause) {
+          if (ball.goRight) ball.x += ball.stepX;
+          if (!ball.goRight) ball.x -= ball.stepX;
+          if (ball.goDown) ball.y += ball.stepY;
+          if (!ball.goDown) ball.y -= ball.stepY;
+        }
+      }
+
+      function drawPaddles() {
+        ctx.fillStyle = colors.p1;
+        ctx.fillRect(paddle1.x, paddle1.y, paddle1.w, paddle1.h);
+
+        ctx.fillStyle = colors.p2;
+        ctx.fillRect(paddle2.x, paddle2.y, paddle2.w, paddle2.h);
+      }
+
+      function paddleMove() {
+        if (!pause) {
+          if (paddle1.move === "up" && paddle1.y > 0) {
+            paddle1.y -= paddle1.step;
+          }
+          if (paddle1.move === "down" && paddle1.y < gh - paddle1.h) {
+            paddle1.y += paddle1.step;
+          }
+
+          if (paddle2.move === "up" && paddle2.y > 0) {
+            paddle2.y -= paddle2.step;
+          }
+          if (paddle2.move === "down" && paddle2.y < gh - paddle2.h) {
+            paddle2.y += paddle2.step;
+          }
+        }
+      }
+
+      function drawScore() {
+        let scoreText = `${scoreP1} : ${scoreP2}`;
+        ctx.beginPath();
+        ctx.font = "20px Verdana";
+        ctx.fillStyle = "#eee";
+        ctx.textAlign = "center";
+        ctx.fillText(scoreText, gw / 2, 40);
+        ctx.closePath();
+      }
+
+      function drawPauseText() {
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+        ctx.fillRect(0, 0, gw, gh);
+
+        ctx.font = "170px Verdana";
+        ctx.fillStyle = "#eee";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("PAUSE", gw / 2, gh / 2);
+        ctx.closePath();
+      }
+
+      function miss() {
+        missDisplay.style.display = "block";
+        setInterval(() => {
+          missDisplay.style.display = "none";
+        }, 100);
+      }
+
+      function gameLoop() {
+        cnv.width = cnv.width;
+        drawPaddles();
+        drawBall();
+        ballCollision();
+        paddleMove();
+        drawScore();
+
+        if (pause) drawPauseText();
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      function startGame() {
+        cnv.width = cnv.width;
+
+        ctx.beginPath();
+        ctx.font = "170px Verdana";
+        ctx.fillStyle = "#eee";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(startTimer, gw / 2, gh / 2);
+        ctx.closePath();
+
+        if (startTimer > 1) {
+          setTimeout(() => {
+            startTimer--;
+            startGame();
+            return;
+          }, 1000);
+        }
+
+        if (startTimer === 1) {
+          setTimeout(() => {
+            requestAnimationFrame(gameLoop);
+            return;
+          }, 1000);
+        }
+      }
+
+      function fullScreenOn() {
+        cnv.width = gw = document.documentElement.clientWidth;
+        cnv.height = gh = document.documentElement.clientHeight;
+        cnv.classList.add("cnv-full-screen");
+      }
+
+      function fullScreenOff() {
+        cnv.width = gw = 600;
+        cnv.height = gh = 400;
+        cnv.classList.remove("cnv-full-screen");
+      }
+
+      /*
+
+      		try{ code } // выполнится если все хорошо
+      		catch(error){ code } // выполнится если есть ошибки
+      		finally{ code } // выполнится в любом случае
+      		---------------------
+      		throw(объект ошибки)
+      		---------------------
+      		стандартные объекты ошибок:
+      		• Error - для общих ощибок
+      		• SyntaxError - для синтаксических ошибок
+      		• TypeError - для ошибок типов данных
+      		• ReferenceError - ссылка на несуществующую переменную
+
+      		let err1 = new Error('Ошибка выполнения')
+      		let err2 = new SyntaxError('Ошибка синтаксиса')
+      		let err3 = new TypeError('Ошибка типов данных')
+
+      		throw err1
+      		throw new SyntaxError('Ошибка синтаксиса')
+
+
+      try {
+      	// код, который нужно "попробовать"
+      	// в этом коде может быть брошено исключение
+      } catch(exception_variable) {
+      	// в этом месте пишется код, который выполняется только в случае обнаружения
+      	// исключения в предыдущем блоке "trу"
+      	// в случае возникновения исключения, в переменную exception_variable будет передан
+      	// код возникшей ошибки, например аргумент оператора throw
+      } finally {
+      	// Код в этом блоке будет выполнен всегда, независимо от результата завершения блока try:
+      	// и при завершении без ошибки, и при завершении с ошибкой, и при завершении по любому оператору перехода
+      	// (break, continue, return)
+      }
+       */
+    </script>
+  </body>
+</html>
